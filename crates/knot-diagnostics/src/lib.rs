@@ -21,6 +21,68 @@ impl fmt::Display for FileId {
     }
 }
 
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct RuleId(String);
+
+impl RuleId {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for RuleId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl From<&str> for RuleId {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<String> for RuleId {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct DiagnosticMessage(String);
+
+impl DiagnosticMessage {
+    pub fn new(value: impl Into<String>) -> Self {
+        Self(value.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for DiagnosticMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl From<&str> for DiagnosticMessage {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<String> for DiagnosticMessage {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ByteSpan {
     pub start: usize,
@@ -97,14 +159,18 @@ impl fmt::Display for Severity {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Diagnostic {
-    pub rule_id: String,
-    pub message: String,
+    pub rule_id: RuleId,
+    pub message: DiagnosticMessage,
     pub severity: Severity,
     pub span: Option<SourceSpan>,
 }
 
 impl Diagnostic {
-    pub fn new(rule_id: impl Into<String>, message: impl Into<String>, severity: Severity) -> Self {
+    pub fn new(
+        rule_id: impl Into<RuleId>,
+        message: impl Into<DiagnosticMessage>,
+        severity: Severity,
+    ) -> Self {
         Self {
             rule_id: rule_id.into(),
             message: message.into(),
@@ -173,8 +239,8 @@ mod tests {
 
         sort_diagnostics(&mut diagnostics);
 
-        assert_eq!(diagnostics[0].rule_id, "a-rule");
-        assert_eq!(diagnostics[1].rule_id, "z-rule");
+        assert_eq!(diagnostics[0].rule_id, RuleId::new("a-rule"));
+        assert_eq!(diagnostics[1].rule_id, RuleId::new("z-rule"));
     }
 
     #[test]

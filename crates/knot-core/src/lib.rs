@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 pub use knot_diagnostics::{
-    ByteSpan, Diagnostic, FileId, LineColumn, Severity, SourceSpan, sort_diagnostics,
+    ByteSpan, Diagnostic, DiagnosticMessage, FileId, LineColumn, RuleId, Severity, SourceSpan,
+    sort_diagnostics,
 };
 
 pub fn version() -> &'static str {
