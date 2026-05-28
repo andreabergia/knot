@@ -412,10 +412,16 @@ version = "0.1.0"
 [[package]]
 name = "knot-parser"
 version = "0.1.0"
+dependencies = [
+ "knot-diagnostics",
+]
 
 [[package]]
 name = "knot-runtime"
 version = "0.1.0"
+dependencies = [
+ "knot-diagnostics",
+]
 
 [[package]]
 name = "leb128fmt"
