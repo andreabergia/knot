@@ -1,0 +1,25 @@
+[workspace]
+members = [
+    "crates/knot-abi",
+    "crates/knot-cli",
+    "crates/knot-core",
+    "crates/knot-diagnostics",
+    "crates/knot-facts",
+    "crates/knot-parser",
+    "crates/knot-runtime",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/andry/knot-lint"
+rust-version = "1.95"
+
+[workspace.dependencies]
+knot-abi = { path = "crates/knot-abi" }
+knot-core = { path = "crates/knot-core" }
+knot-diagnostics = { path = "crates/knot-diagnostics" }
+knot-facts = { path = "crates/knot-facts" }
+knot-parser = { path = "crates/knot-parser" }
+knot-runtime = { path = "crates/knot-runtime" }
