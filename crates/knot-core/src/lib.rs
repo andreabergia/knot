@@ -1,5 +1,3 @@
-use std::error::Error;
-use std::fmt;
 use std::path::PathBuf;
 
 pub use knot_diagnostics::{
@@ -10,20 +8,11 @@ pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, thiserror::Error)]
 pub enum CheckError {
+    #[error("path does not exist: {0}")]
     MissingPath(PathBuf),
 }
-
-impl fmt::Display for CheckError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::MissingPath(path) => write!(f, "path does not exist: {}", path.display()),
-        }
-    }
-}
-
-impl Error for CheckError {}
 
 pub fn check_paths(paths: &[PathBuf]) -> Result<Vec<Diagnostic>, CheckError> {
     for path in paths {

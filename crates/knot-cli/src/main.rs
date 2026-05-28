@@ -22,23 +22,30 @@ enum Command {
 }
 
 fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("error: {error:#}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Check { paths } => match knot_core::check_paths(&paths) {
-            Ok(diagnostics) => {
-                for diagnostic in diagnostics {
-                    println!(
-                        "{}[{}]: {}",
-                        diagnostic.severity, diagnostic.rule_id, diagnostic.message
-                    );
-                }
-                ExitCode::SUCCESS
+        Command::Check { paths } => {
+            let diagnostics = knot_core::check_paths(&paths)?;
+
+            for diagnostic in diagnostics {
+                println!(
+                    "{}[{}]: {}",
+                    diagnostic.severity, diagnostic.rule_id, diagnostic.message
+                );
             }
-            Err(error) => {
-                eprintln!("error: {error}");
-                ExitCode::FAILURE
-            }
-        },
+
+            Ok(())
+        }
     }
 }
