@@ -110,16 +110,20 @@ Initial TypeScript-specific facts:
 
 Goal: make the project buildable and easy to extend.
 
+Status: complete.
+
 Tasks:
 
-- create Rust workspace
-- add core crates
-- add basic CLI binary
-- add snapshot-style test harness
-- add fixture layout for Python and TypeScript
-- add CI with format, lint, and tests
+- create Rust workspace - done
+- add core crates - done
+- add basic CLI binary - done
+- add snapshot-style test harness - done
+- add fixture layout for Python and TypeScript - done
+- add CI with format, lint, and tests - done
+- add initial architecture documentation - done
+- establish typed error and newtype conventions - done
 
-Suggested crate layout:
+Current crate layout:
 
 ```text
 crates/
@@ -134,9 +138,20 @@ crates/
 
 Exit criteria:
 
-- `cargo test` runs
-- CLI can accept file paths
+- `cargo test --workspace` runs
+- CLI accepts file paths with `knot check <paths...>`
 - fixtures can assert diagnostics
+- `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
+  and `cargo test --workspace` run in CI
+
+Foundation conventions:
+
+- use `thiserror` for typed library errors
+- use `anyhow` at binary/tooling boundaries
+- define domain newtypes once and re-export them when another crate needs the
+  same concept
+- keep `RuleId` and `FileId` canonical in `knot-diagnostics` while
+  `knot-runtime` and `knot-parser` re-export them
 
 ## Milestone 1: Parser Spine
 
@@ -448,13 +463,17 @@ This proves the pipeline without requiring the hardest semantic work upfront.
 
 ## Near-Term Task Order
 
-1. Create the Rust workspace and CLI shell.
-2. Add Tree-sitter parsing for Python.
-3. Add Tree-sitter parsing for TypeScript/TSX.
-4. Add line/column source mapping.
-5. Define diagnostics and fixture tests.
-6. Define the first Wasm ABI.
-7. Implement the Wasm runtime, rule registry, and scheduler.
-8. Implement the first three syntax-oriented rules as Wasm fixtures.
-9. Add JSON output.
-10. Start Python scope and binding facts.
+1. Add source file loading and deterministic path discovery.
+2. Add line/column source mapping tests for UTF-8 and multiline spans.
+3. Integrate Tree-sitter and add Python parsing.
+4. Expose Python parse errors as diagnostics.
+5. Add TypeScript and TSX parsing.
+6. Expose TypeScript/TSX parse errors as diagnostics.
+7. Wire parser diagnostics into `knot check`.
+8. Expand fixture snapshots for valid files, syntax errors, UTF-8, and
+   multiline spans.
+9. Define the first Wasm ABI.
+10. Implement the Wasm runtime, rule registry, and scheduler.
+11. Implement the first three syntax-oriented rules as Wasm fixtures.
+12. Add JSON output.
+13. Start Python scope and binding facts.

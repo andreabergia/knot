@@ -51,7 +51,7 @@ implementation that runs plugins using that agreement.
 For example, `knot-abi` can define:
 
 ```rust
-pub const ABI_VERSION: u32 = 1;
+pub const ABI_VERSION: AbiVersion = AbiVersion::new(1);
 pub const EXPORT_METADATA: &str = "knot_rule_metadata";
 ```
 
