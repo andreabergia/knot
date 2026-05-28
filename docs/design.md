@@ -1,4 +1,4 @@
-# Multi-Language Static Analysis Framework — Design Notes
+# Knot Design Notes
 
 ## Vision
 
@@ -6,7 +6,7 @@ A fast, extensible static-analysis platform supporting multiple languages via:
 
 - Tree-sitter parsing
 - Rust native core
-- Wasm-based rules
+- Wasm plugin rules
 - Incremental analysis
 - Shared semantic facts
 - Language-specific semantic adapters
@@ -51,7 +51,7 @@ but:
 - incremental
 - embeddable
 - editor-friendly
-- Wasm-extensible
+- Wasm-plugin-based
 - multi-language
 ```
 
@@ -63,7 +63,7 @@ Best use cases:
 - framework usage enforcement
 - architectural constraints
 - internal SDK migration checks
-- llm-authoring of custom rules
+- LLM-assisted authoring of custom rules
 
 ### Why Python + TypeScript
 
@@ -73,16 +73,15 @@ without context-switching.
 
 TypeScript is the right second language because:
 
-- `typescript-eslint` is powerful but slow; Biome has incomplete TS support
-- Type-aware rule tooling remains unsatisfying across the ecosystem
-- Declaration merging, optional chaining, and module resolution provide genuine semantic complexity
-- Large addressable audience; real unsolved problems
+- type-aware rule tooling remains operationally heavy across the ecosystem
+- optional chaining, JSX, imports/exports, and module systems provide genuine semantic complexity
+- large addressable audience; real unsolved problems
 
 Go and Rust are excluded: both have mature, well-maintained tooling ecosystems with little room
 for meaningful differentiation.
 
 Lua is a stretch goal. Its grammar is small, Tree-sitter support is excellent (driven by the
-Neovim ecosystem), and tooling is nearly nonexistent. Adding Lua in a later phase would serve
+Neovim ecosystem), and tooling is nearly nonexistent. Adding Lua later would serve
 as a concrete demo of how easy it is to extend the framework to a new language.
 
 ---
@@ -132,7 +131,8 @@ Use Rust for:
 - diagnostics
 - fix application
 
-Rules run in Wasm sandboxes.
+Rules run as Wasm plugins. The Rust host owns all expensive shared analysis and passes compact,
+versioned fact snapshots to sandboxed rules.
 
 ---
 
@@ -140,7 +140,8 @@ Rules run in Wasm sandboxes.
 
 Rules consume semantic facts instead of traversing raw ASTs.
 
-Example shape:
+Guest SDKs can expose an ergonomic shape like this, but the host/plugin contract is the Wasm ABI,
+not an in-process Rust trait:
 
 ```rust
 trait Rule {
@@ -151,8 +152,9 @@ trait Rule {
 ```
 
 The `Interest`/event model is a push/subscription system: the host dispatches fact events only
-to rules that have opted in. The event taxonomy and the memory layout for cross-Wasm-boundary
-fact passing must be defined concretely before Phase 3 (see Wasm ABI note below).
+to rules that have opted in. Because all rules cross the Wasm boundary, the event taxonomy, fact
+serialization, memory ownership, and ABI versioning must be designed as part of the first runnable
+rule pipeline.
 
 Important principle:
 
@@ -223,8 +225,8 @@ InterfaceDeclaration
 
 # Wasm ABI
 
-The rule ABI across the Wasm boundary is a first-class design concern and must be resolved
-before Phase 3. Key decisions required:
+The rule ABI across the Wasm boundary is a first-class design concern and must be resolved before
+the first rule pipeline is considered real. Key decisions required:
 
 - Serialization format for facts (candidates: Flatbuffers, Cap'n Proto, custom encoding)
 - Memory model: who owns allocations, how strings and spans are passed
@@ -315,7 +317,8 @@ debugger;
 Requires:
 
 - binding analysis
-- write tracking across all assignments (requires limited CFG; see phasing note)
+- write tracking across all assignments
+- likely limited CFG support
 
 ---
 
@@ -387,8 +390,9 @@ Requires:
 - dependency graphs
 - project caches
 
-**Important:** Phases 1–6 produce single-file rules only. Several stated use cases (API governance,
-SDK migration, architectural constraints) require cross-file resolution and are deferred to Phase 7.
+**Important:** The initial implementation should focus on single-file rules. Several stated use
+cases (API governance, SDK migration, architectural constraints) require cross-file resolution and
+should wait until parsing, facts, diagnostics, and invalidation are stable.
 
 ---
 
@@ -418,101 +422,6 @@ reasons about when a pattern is actually safe to flag.
 
 ---
 
-# Roadmap
-
-## Phase 1 — Parsing
-
-- Tree-sitter integration
-- Python + TypeScript grammars
-- incremental parsing
-- source mapping
-
----
-
-## Phase 2 — Semantic Layer
-
-**This is the largest phase and the true core of the system.** Scope resolution, binding
-analysis, and reference tracking for Python alone (closures, `nonlocal`, comprehension scopes,
-`import *`, dynamic attribute access) is a substantial engineering effort. Do not underestimate
-it relative to later phases.
-
-- scopes
-- bindings
-- references
-- imports
-- calls
-- member accesses
-
-Python + TypeScript semantic adapters.
-
----
-
-## Phase 3 — Wasm Rule Engine
-
-Pin the Wasm ABI before starting this phase (serialization format, memory model, versioning).
-
-- rule ABI
-- sandboxing
-- memory/time limits
-- diagnostics API
-- rule testing harness
-
----
-
-## Phase 4 — Diagnostics + Fixes
-
-- fix engine
-- conflict resolution
-- SARIF/JSON output
-- suppression support
-
----
-
-## Phase 5 — CLI + LSP
-
-- CLI
-- watch mode
-- caching
-- LSP integration with correct cancel/retry
-- code actions
-
----
-
-## Phase 6 — Production Rules
-
-Python:
-- unused imports
-- mutable defaults
-- bare except
-
-TypeScript:
-- no debugger
-- no console
-- prefer const (note: requires limited CFG for write tracking; may slip to Phase 7)
-
----
-
-## Phase 7 — Advanced Analysis
-
-Optional:
-
-- CFG (required for prefer-const and write-tracking rules)
-- call graph
-- taint tracking
-- type-aware rules
-- cross-file analysis
-
----
-
-## Phase 8 — Lua (Stretch Goal)
-
-- Lua Tree-sitter grammar integration
-- minimal semantic adapter (bindings, calls, imports)
-- 2–3 demo rules
-- serves as public proof of framework extensibility
-
----
-
 # Biggest Technical Risk
 
 The hardest problem is not parsing.
@@ -536,7 +445,7 @@ Keep the parser generic.
 Keep semantics language-specific.
 Keep rules mostly language-agnostic when possible.
 Avoid premature universal abstractions.
-Optimize the host, not the Wasm boundary.
+Optimize the host and minimize Wasm boundary crossings.
 Pin the Wasm ABI early.
-Phases 1–6 are single-file only; cross-file is Phase 7.
+Start with single-file analysis; add cross-file analysis only after the core engine is stable.
 ```
