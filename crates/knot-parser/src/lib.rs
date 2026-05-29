@@ -1,5 +1,24 @@
 pub use knot_diagnostics::FileId;
 use knot_diagnostics::{ByteSpan, LineColumn, SourceSpan};
+use std::path::Path;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Language {
+    Python,
+    TypeScript,
+    Tsx,
+}
+
+impl Language {
+    pub fn from_path(path: &Path) -> Option<Self> {
+        match path.extension().and_then(|extension| extension.to_str()) {
+            Some("py") => Some(Self::Python),
+            Some("ts") => Some(Self::TypeScript),
+            Some("tsx") => Some(Self::Tsx),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourceFile {
@@ -90,6 +109,7 @@ mod tests {
     use knot_diagnostics::{ByteSpan, LineColumn};
 
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn line_index_maps_ascii_byte_offsets_to_one_based_positions() {
@@ -128,5 +148,27 @@ mod tests {
 
         assert_eq!(span.start, LineColumn::new(1, 3));
         assert_eq!(span.end, LineColumn::new(3, 1));
+    }
+
+    #[test]
+    fn language_detects_supported_file_extensions() {
+        assert_eq!(
+            Language::from_path(Path::new("sample.py")),
+            Some(Language::Python)
+        );
+        assert_eq!(
+            Language::from_path(Path::new("sample.ts")),
+            Some(Language::TypeScript)
+        );
+        assert_eq!(
+            Language::from_path(Path::new("component.tsx")),
+            Some(Language::Tsx)
+        );
+    }
+
+    #[test]
+    fn language_rejects_unsupported_or_missing_extensions() {
+        assert_eq!(Language::from_path(Path::new("README.md")), None);
+        assert_eq!(Language::from_path(Path::new("Makefile")), None);
     }
 }
