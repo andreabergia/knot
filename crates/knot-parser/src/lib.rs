@@ -71,8 +71,10 @@ fn collect_syntax_diagnostics(
             source.file_id().clone(),
             ByteSpan::new(range.start, range.end),
         );
-        diagnostics
-            .push(Diagnostic::new("knot/syntax", "syntax error", Severity::Error).with_span(span));
+        diagnostics.push(
+            Diagnostic::new("knot/syntax", syntax_error_message(node), Severity::Error)
+                .with_span(span),
+        );
     }
 
     let mut cursor = node.walk();
@@ -80,6 +82,14 @@ fn collect_syntax_diagnostics(
         if child.has_error() || child.is_error() || child.is_missing() {
             collect_syntax_diagnostics(child, source, diagnostics);
         }
+    }
+}
+
+fn syntax_error_message(node: arborium::tree_sitter::Node<'_>) -> String {
+    if node.is_missing() {
+        format!("syntax error: missing {}", node.kind())
+    } else {
+        "syntax error: unexpected syntax".to_owned()
     }
 }
 
@@ -331,7 +341,7 @@ mod tests {
         assert_eq!(diagnostics.len(), 1);
         let diagnostic = diagnostics.first().expect("syntax diagnostic");
         assert_eq!(diagnostic.rule_id.as_str(), "knot/syntax");
-        assert_eq!(diagnostic.message.as_str(), "syntax error");
+        assert_eq!(diagnostic.message.as_str(), "syntax error: missing )");
         assert_eq!(diagnostic.severity, Severity::Error);
         let span = diagnostic.span.as_ref().expect("syntax diagnostic span");
         assert_eq!(span.file, FileId::new("sample.py"));
@@ -352,6 +362,10 @@ mod tests {
             .and_then(|diagnostic| diagnostic.span.as_ref())
             .expect("syntax diagnostic should have a span");
         assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0].message.as_str(),
+            "syntax error: unexpected syntax"
+        );
         assert_eq!(span.file, FileId::new("sample.py"));
         assert_eq!(span.bytes, ByteSpan::new(0, 4));
         assert_eq!(span.start, LineColumn::new(1, 1));
@@ -373,6 +387,10 @@ mod tests {
             .first()
             .and_then(|diagnostic| diagnostic.span.as_ref())
             .expect("syntax diagnostic should have a span");
+        assert_eq!(
+            diagnostics[0].message.as_str(),
+            "syntax error: unexpected syntax"
+        );
         assert_eq!(span.file, FileId::new("component.tsx"));
         assert_eq!(span.bytes, ByteSpan::new(34, 86));
         assert_eq!(span.start, LineColumn::new(2, 5));
