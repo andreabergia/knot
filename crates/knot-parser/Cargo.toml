@@ -11,3 +11,5 @@ path = "src/lib.rs"
 
 [dependencies]
 knot-diagnostics.workspace = true
+tree-sitter = "0.26.9"
+tree-sitter-python = "0.25.0"

@@ -1,6 +1,6 @@
 pub use knot_diagnostics::FileId;
 use knot_diagnostics::{ByteSpan, LineColumn, SourceSpan};
-use std::path::Path;
+use std::{error::Error, fmt, path::Path};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Language {
@@ -19,6 +19,64 @@ impl Language {
         }
     }
 }
+
+pub fn parse_source(source: &SourceFile, language: Language) -> Result<ParsedFile, ParseError> {
+    let tree_sitter_language = match language {
+        Language::Python => tree_sitter_python::LANGUAGE.into(),
+        Language::TypeScript | Language::Tsx => {
+            return Err(ParseError::UnsupportedLanguage(language));
+        }
+    };
+
+    let mut parser = tree_sitter::Parser::new();
+    parser
+        .set_language(&tree_sitter_language)
+        .map_err(|_| ParseError::IncompatibleLanguage(language))?;
+    let tree = parser
+        .parse(source.text(), None)
+        .ok_or(ParseError::ParseFailed(language))?;
+
+    Ok(ParsedFile { language, tree })
+}
+
+#[derive(Debug)]
+pub struct ParsedFile {
+    language: Language,
+    tree: tree_sitter::Tree,
+}
+
+impl ParsedFile {
+    pub fn language(&self) -> Language {
+        self.language
+    }
+
+    pub fn has_syntax_errors(&self) -> bool {
+        self.tree.root_node().has_error()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ParseError {
+    IncompatibleLanguage(Language),
+    ParseFailed(Language),
+    UnsupportedLanguage(Language),
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IncompatibleLanguage(language) => {
+                write!(f, "tree-sitter parser is incompatible with {language:?}")
+            }
+            Self::ParseFailed(language) => write!(f, "failed to parse {language:?} source"),
+            Self::UnsupportedLanguage(language) => {
+                write!(f, "no parser registered for {language:?}")
+            }
+        }
+    }
+}
+
+impl Error for ParseError {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourceFile {
@@ -170,5 +228,34 @@ mod tests {
     fn language_rejects_unsupported_or_missing_extensions() {
         assert_eq!(Language::from_path(Path::new("README.md")), None);
         assert_eq!(Language::from_path(Path::new("Makefile")), None);
+    }
+
+    #[test]
+    fn parse_source_parses_valid_python() {
+        let source = SourceFile::new(FileId::new("sample.py"), "def answer():\n    return 42\n");
+
+        let parsed = parse_source(&source, Language::Python).expect("python should parse");
+
+        assert_eq!(parsed.language(), Language::Python);
+        assert!(!parsed.has_syntax_errors());
+    }
+
+    #[test]
+    fn parse_source_marks_python_syntax_errors() {
+        let source = SourceFile::new(FileId::new("sample.py"), "def broken(:\n    pass\n");
+
+        let parsed = parse_source(&source, Language::Python).expect("python should parse");
+
+        assert!(parsed.has_syntax_errors());
+    }
+
+    #[test]
+    fn parse_source_rejects_languages_without_registered_parser() {
+        let source = SourceFile::new(FileId::new("sample.ts"), "const answer = 42;\n");
+
+        let error =
+            parse_source(&source, Language::TypeScript).expect_err("typescript is not wired yet");
+
+        assert_eq!(error, ParseError::UnsupportedLanguage(Language::TypeScript));
     }
 }
