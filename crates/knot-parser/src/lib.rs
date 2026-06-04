@@ -22,13 +22,13 @@ impl Language {
 
 pub fn parse_source(source: &SourceFile, language: Language) -> Result<ParsedFile, ParseError> {
     let tree_sitter_language = match language {
-        Language::Python => tree_sitter_python::LANGUAGE.into(),
+        Language::Python => arborium::lang_python::language().into(),
         Language::TypeScript | Language::Tsx => {
             return Err(ParseError::UnsupportedLanguage(language));
         }
     };
 
-    let mut parser = tree_sitter::Parser::new();
+    let mut parser = arborium::tree_sitter::Parser::new();
     parser
         .set_language(&tree_sitter_language)
         .map_err(|_| ParseError::IncompatibleLanguage(language))?;
@@ -42,7 +42,7 @@ pub fn parse_source(source: &SourceFile, language: Language) -> Result<ParsedFil
 #[derive(Debug)]
 pub struct ParsedFile {
     language: Language,
-    tree: tree_sitter::Tree,
+    tree: arborium::tree_sitter::Tree,
 }
 
 impl ParsedFile {
