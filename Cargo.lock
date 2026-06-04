@@ -77,6 +77,8 @@ dependencies = [
  "arborium-python",
  "arborium-theme",
  "arborium-tree-sitter",
+ "arborium-tsx",
+ "arborium-typescript",
  "dlmalloc",
 ]
 
@@ -89,6 +91,29 @@ dependencies = [
  "arborium-theme",
  "arborium-tree-sitter",
  "streaming-iterator",
+]
+
+[[package]]
+name = "arborium-javascript"
+version = "2.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8771bf5fee9ebc8a64bd534248ee1d7fc746fa3b37ee7780d7303bc08c6bf2c"
+dependencies = [
+ "arborium-jsdoc",
+ "arborium-sysroot",
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "arborium-jsdoc"
+version = "2.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d7e41ef1d3da000a2364361c0a9df7c119164213640e87581272aab3db3f04f"
+dependencies = [
+ "arborium-sysroot",
+ "cc",
+ "tree-sitter-language",
 ]
 
 [[package]]
@@ -129,6 +154,30 @@ dependencies = [
  "regex",
  "regex-syntax",
  "streaming-iterator",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "arborium-tsx"
+version = "2.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f19707ebfde2c3e9c982d34788ea8f6da8e9780b468107d3f079e88b180eccf"
+dependencies = [
+ "arborium-javascript",
+ "arborium-sysroot",
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "arborium-typescript"
+version = "2.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ecd0de15de9a036af8ca603b1561e0c169dd19f61e6cf55023f40db4591dfdf"
+dependencies = [
+ "arborium-javascript",
+ "arborium-sysroot",
+ "cc",
  "tree-sitter-language",
 ]
 

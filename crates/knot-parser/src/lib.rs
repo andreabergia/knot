@@ -23,9 +23,8 @@ impl Language {
 pub fn parse_source(source: &SourceFile, language: Language) -> Result<ParsedFile, ParseError> {
     let tree_sitter_language = match language {
         Language::Python => arborium::lang_python::language().into(),
-        Language::TypeScript | Language::Tsx => {
-            return Err(ParseError::UnsupportedLanguage(language));
-        }
+        Language::TypeScript => arborium::lang_typescript::language().into(),
+        Language::Tsx => arborium::lang_tsx::language().into(),
     };
 
     let mut parser = arborium::tree_sitter::Parser::new();
@@ -250,12 +249,46 @@ mod tests {
     }
 
     #[test]
-    fn parse_source_rejects_languages_without_registered_parser() {
+    fn parse_source_parses_valid_typescript() {
         let source = SourceFile::new(FileId::new("sample.ts"), "const answer = 42;\n");
 
-        let error =
-            parse_source(&source, Language::TypeScript).expect_err("typescript is not wired yet");
+        let parsed = parse_source(&source, Language::TypeScript).expect("typescript should parse");
 
-        assert_eq!(error, ParseError::UnsupportedLanguage(Language::TypeScript));
+        assert_eq!(parsed.language(), Language::TypeScript);
+        assert!(!parsed.has_syntax_errors());
+    }
+
+    #[test]
+    fn parse_source_marks_typescript_syntax_errors() {
+        let source = SourceFile::new(FileId::new("sample.ts"), "const answer = ;\n");
+
+        let parsed = parse_source(&source, Language::TypeScript).expect("typescript should parse");
+
+        assert!(parsed.has_syntax_errors());
+    }
+
+    #[test]
+    fn parse_source_parses_valid_tsx() {
+        let source = SourceFile::new(
+            FileId::new("component.tsx"),
+            "export function Component() {\n    return <section>{42}</section>;\n}\n",
+        );
+
+        let parsed = parse_source(&source, Language::Tsx).expect("tsx should parse");
+
+        assert_eq!(parsed.language(), Language::Tsx);
+        assert!(!parsed.has_syntax_errors());
+    }
+
+    #[test]
+    fn parse_source_marks_tsx_syntax_errors() {
+        let source = SourceFile::new(
+            FileId::new("component.tsx"),
+            "export function Component() {\n    return <section>{42};\n}\n",
+        );
+
+        let parsed = parse_source(&source, Language::Tsx).expect("tsx should parse");
+
+        assert!(parsed.has_syntax_errors());
     }
 }

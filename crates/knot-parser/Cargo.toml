@@ -10,5 +10,9 @@ rust-version.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
-arborium = { version = "2.18.0", features = ["lang-python"] }
+arborium = { version = "2.18.0", features = [
+    "lang-python",
+    "lang-tsx",
+    "lang-typescript",
+] }
 knot-diagnostics.workspace = true
