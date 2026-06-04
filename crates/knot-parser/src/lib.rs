@@ -1,5 +1,5 @@
 pub use knot_diagnostics::FileId;
-use knot_diagnostics::{ByteSpan, LineColumn, SourceSpan};
+use knot_diagnostics::{ByteSpan, Diagnostic, LineColumn, Severity, SourceSpan};
 use std::{error::Error, fmt, path::Path};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -51,6 +51,35 @@ impl ParsedFile {
 
     pub fn has_syntax_errors(&self) -> bool {
         self.tree.root_node().has_error()
+    }
+
+    pub fn syntax_diagnostics(&self, source: &SourceFile) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        collect_syntax_diagnostics(self.tree.root_node(), source, &mut diagnostics);
+        diagnostics
+    }
+}
+
+fn collect_syntax_diagnostics(
+    node: arborium::tree_sitter::Node<'_>,
+    source: &SourceFile,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if node.is_error() || node.is_missing() {
+        let range = node.byte_range();
+        let span = source.line_index().source_span(
+            source.file_id().clone(),
+            ByteSpan::new(range.start, range.end),
+        );
+        diagnostics
+            .push(Diagnostic::new("knot/syntax", "syntax error", Severity::Error).with_span(span));
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if child.has_error() || child.is_error() || child.is_missing() {
+            collect_syntax_diagnostics(child, source, diagnostics);
+        }
     }
 }
 
@@ -163,7 +192,7 @@ impl LineIndex {
 
 #[cfg(test)]
 mod tests {
-    use knot_diagnostics::{ByteSpan, LineColumn};
+    use knot_diagnostics::{ByteSpan, LineColumn, Severity};
 
     use super::*;
     use std::path::Path;
@@ -290,5 +319,63 @@ mod tests {
         let parsed = parse_source(&source, Language::Tsx).expect("tsx should parse");
 
         assert!(parsed.has_syntax_errors());
+    }
+
+    #[test]
+    fn syntax_diagnostics_report_parser_errors() {
+        let source = SourceFile::new(FileId::new("sample.py"), "def broken(:\n    pass\n");
+        let parsed = parse_source(&source, Language::Python).expect("python should parse");
+
+        let diagnostics = parsed.syntax_diagnostics(&source);
+
+        assert_eq!(diagnostics.len(), 1);
+        let diagnostic = diagnostics.first().expect("syntax diagnostic");
+        assert_eq!(diagnostic.rule_id.as_str(), "knot/syntax");
+        assert_eq!(diagnostic.message.as_str(), "syntax error");
+        assert_eq!(diagnostic.severity, Severity::Error);
+        let span = diagnostic.span.as_ref().expect("syntax diagnostic span");
+        assert_eq!(span.file, FileId::new("sample.py"));
+        assert_eq!(span.bytes, ByteSpan::new(11, 11));
+        assert_eq!(span.start, LineColumn::new(1, 12));
+        assert_eq!(span.end, LineColumn::new(1, 12));
+    }
+
+    #[test]
+    fn syntax_diagnostics_count_utf8_columns_by_character() {
+        let source = SourceFile::new(FileId::new("sample.py"), "é =\n");
+        let parsed = parse_source(&source, Language::Python).expect("python should parse");
+
+        let diagnostics = parsed.syntax_diagnostics(&source);
+
+        let span = diagnostics
+            .first()
+            .and_then(|diagnostic| diagnostic.span.as_ref())
+            .expect("syntax diagnostic should have a span");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(span.file, FileId::new("sample.py"));
+        assert_eq!(span.bytes, ByteSpan::new(0, 4));
+        assert_eq!(span.start, LineColumn::new(1, 1));
+        assert_eq!(span.end, LineColumn::new(1, 4));
+    }
+
+    #[test]
+    fn syntax_diagnostics_can_span_multiple_lines() {
+        let source = SourceFile::new(
+            FileId::new("component.tsx"),
+            "export function Component() {\n    return <section>\n        <span>{42}\n    </section>;\n}\n",
+        );
+        let parsed = parse_source(&source, Language::Tsx).expect("tsx should parse");
+
+        let diagnostics = parsed.syntax_diagnostics(&source);
+
+        assert_eq!(diagnostics.len(), 1);
+        let span = diagnostics
+            .first()
+            .and_then(|diagnostic| diagnostic.span.as_ref())
+            .expect("syntax diagnostic should have a span");
+        assert_eq!(span.file, FileId::new("component.tsx"));
+        assert_eq!(span.bytes, ByteSpan::new(34, 86));
+        assert_eq!(span.start, LineColumn::new(2, 5));
+        assert_eq!(span.end, LineColumn::new(5, 1));
     }
 }
