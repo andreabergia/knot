@@ -257,6 +257,7 @@ Goal: make diagnostics usable in real projects.
 
 Tasks:
 
+- support project ignore files such as `.gitignore` during path discovery
 - stable diagnostic IDs
 - severity levels
 - related spans
