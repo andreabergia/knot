@@ -1,2 +1,4 @@
 - [ ] integrate `ignore` crate to walk input files
 - [ ] parallel parsing
+- [ ] split fact generation by language into separate files
+- [ ] split language support in multiple features
