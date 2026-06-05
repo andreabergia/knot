@@ -1,0 +1,2 @@
+- [ ] integrate `ignore` crate to walk input files
+- [ ] parallel parsing
