@@ -39,13 +39,25 @@ fn run() -> anyhow::Result<()> {
             let diagnostics = knot_core::check_paths(&paths)?;
 
             for diagnostic in diagnostics {
-                println!(
-                    "{}[{}]: {}",
-                    diagnostic.severity, diagnostic.rule_id, diagnostic.message
-                );
+                println!("{}", render_diagnostic(&diagnostic));
             }
 
             Ok(())
         }
+    }
+}
+
+fn render_diagnostic(diagnostic: &knot_core::Diagnostic) -> String {
+    let body = format!(
+        "{}[{}]: {}",
+        diagnostic.severity, diagnostic.rule_id, diagnostic.message
+    );
+
+    match &diagnostic.span {
+        Some(span) => format!(
+            "{}:{}:{}: {body}",
+            span.file, span.start.line, span.start.column
+        ),
+        None => body,
     }
 }

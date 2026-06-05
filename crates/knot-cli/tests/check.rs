@@ -59,6 +59,21 @@ fn check_multiple_existing_paths_succeeds_without_diagnostics() {
 }
 
 #[test]
+fn check_syntax_error_prints_location() {
+    let mut command = Command::cargo_bin("knot").expect("binary should build");
+
+    let output = command
+        .args(["check", "tests/error-fixtures/broken.py"])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stdout), @"tests/error-fixtures/broken.py:1:12: error[knot/syntax]: syntax error: missing )");
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stderr), @"");
+}
+
+#[test]
 fn check_missing_path_fails() {
     let mut command = Command::cargo_bin("knot").expect("binary should build");
 
