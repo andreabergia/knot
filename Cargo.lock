@@ -555,6 +555,12 @@ version = "0.1.0"
 [[package]]
 name = "knot-facts"
 version = "0.1.0"
+dependencies = [
+ "arborium",
+ "knot-abi",
+ "knot-diagnostics",
+ "knot-parser",
+]
 
 [[package]]
 name = "knot-parser"

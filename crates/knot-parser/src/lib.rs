@@ -53,6 +53,10 @@ impl ParsedFile {
         self.tree.root_node().has_error()
     }
 
+    pub fn root_node(&self) -> arborium::tree_sitter::Node<'_> {
+        self.tree.root_node()
+    }
+
     pub fn syntax_diagnostics(&self, source: &SourceFile) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         collect_syntax_diagnostics(self.tree.root_node(), source, &mut diagnostics);

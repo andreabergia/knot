@@ -10,7 +10,7 @@ rust-version.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
-arborium = { version = "2.18.0", features = [
+arborium = { workspace = true, features = [
     "lang-python",
     "lang-tsx",
     "lang-typescript",
