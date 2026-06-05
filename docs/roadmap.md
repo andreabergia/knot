@@ -157,20 +157,22 @@ Foundation conventions:
 
 Goal: parse files reliably and expose source mapping.
 
+Status: complete.
+
 Tasks:
 
-- integrate Tree-sitter
-- add Python parser
-- add TypeScript/TSX parser
-- represent files and line/column mapping
-- expose parse errors as diagnostics
-- support incremental parse internally, but do not optimize around it yet
+- integrate Arborium-backed Tree-sitter parsing - done
+- add Python parser - done
+- add TypeScript/TSX parser - done
+- represent files and line/column mapping - done
+- expose parse errors as diagnostics - done
+- support incremental parse internally, but do not optimize around it yet - done
 
 Exit criteria:
 
-- CLI parses Python and TypeScript files
-- parse errors include useful spans
-- tests cover UTF-8, multiline spans, and syntax errors
+- CLI parses Python and TypeScript files - done
+- parse errors include useful spans - done
+- tests cover UTF-8, multiline spans, and syntax errors - done
 
 ## Milestone 2: Wasm Rule Pipeline
 
@@ -464,15 +466,15 @@ This proves the pipeline without requiring the hardest semantic work upfront.
 
 ## Near-Term Task Order
 
-1. Add source file loading and deterministic path discovery.
-2. Add line/column source mapping tests for UTF-8 and multiline spans.
-3. Integrate Tree-sitter and add Python parsing.
-4. Expose Python parse errors as diagnostics.
-5. Add TypeScript and TSX parsing.
-6. Expose TypeScript/TSX parse errors as diagnostics.
-7. Wire parser diagnostics into `knot check`.
+1. Add source file loading and deterministic path discovery - done.
+2. Add line/column source mapping tests for UTF-8 and multiline spans - done.
+3. Integrate Arborium-backed Tree-sitter parsing and add Python parsing - done.
+4. Expose Python parse errors as diagnostics - done.
+5. Add TypeScript and TSX parsing - done.
+6. Expose TypeScript/TSX parse errors as diagnostics - done.
+7. Wire parser diagnostics into `knot check` - done.
 8. Expand fixture snapshots for valid files, syntax errors, UTF-8, and
-   multiline spans.
+   multiline spans - done.
 9. Define the first Wasm ABI.
 10. Implement the Wasm runtime, rule registry, and scheduler.
 11. Implement the first three syntax-oriented rules as Wasm fixtures.
