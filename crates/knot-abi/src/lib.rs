@@ -53,26 +53,36 @@ impl RuleMetadata {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "language", content = "fact")]
 pub enum FactPayload {
-    PythonParameterDefault {
-        file: String,
+    #[serde(rename = "python")]
+    Python(PythonFactPayload),
+    #[serde(rename = "typescript")]
+    TypeScript(TypeScriptFactPayload),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum PythonFactPayload {
+    ParameterDefault {
         span: SpanPayload,
         function_name: String,
         parameter_name: String,
         literal: LiteralPayload,
     },
-    TypeScriptDebugger {
-        file: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum TypeScriptFactPayload {
+    Debugger {
         span: SpanPayload,
     },
-    TypeScriptCall {
-        file: String,
+    Call {
         span: SpanPayload,
         callee: String,
     },
-    TypeScriptMemberAccess {
-        file: String,
+    MemberAccess {
         span: SpanPayload,
         object: String,
         property: String,
@@ -230,6 +240,22 @@ mod tests {
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].rule_id, "knot/ts-debugger");
         assert_eq!(diagnostics[0].span.end_column, 9);
+    }
+
+    #[test]
+    fn language_specific_fact_decodes_from_json() {
+        let json = br#"{"language":"python","fact":{"kind":"parameter_default","span":{"file":"sample.py","start_byte":12,"end_byte":14,"start_line":1,"start_column":13,"end_line":1,"end_column":15},"function_name":"f","parameter_name":"items","literal":"list"}}"#;
+
+        let fact: FactPayload = decode_json(json).expect("fact decodes");
+
+        assert!(matches!(
+            fact,
+            FactPayload::Python(PythonFactPayload::ParameterDefault {
+                parameter_name,
+                literal: LiteralPayload::List,
+                ..
+            }) if parameter_name == "items"
+        ));
     }
 
     #[test]
