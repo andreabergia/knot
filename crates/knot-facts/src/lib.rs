@@ -1,11 +1,11 @@
 use std::fmt;
 
-use arborium::tree_sitter::Node;
-use knot_abi::{
-    FactPayload, LiteralPayload, PythonFactPayload, SpanPayload, TypeScriptFactPayload,
-};
-use knot_diagnostics::ByteSpan;
+use knot_abi::FactPayload;
 use knot_parser::{Language, ParsedFile, SourceFile};
+
+mod python;
+mod tree;
+mod typescript;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct FactId(u64);
@@ -30,160 +30,18 @@ pub fn extract_facts(source: &SourceFile, parsed: &ParsedFile) -> Vec<FactPayloa
     let mut facts = Vec::new();
 
     match parsed.language() {
-        Language::Python => collect_python_facts(parsed.root_node(), source, &mut facts),
+        Language::Python => python::collect_facts(parsed.root_node(), source, &mut facts),
         Language::TypeScript | Language::Tsx => {
-            collect_typescript_facts(parsed.root_node(), source, &mut facts);
+            typescript::collect_facts(parsed.root_node(), source, &mut facts)
         }
     }
 
     facts
 }
 
-fn collect_python_facts(node: Node<'_>, source: &SourceFile, facts: &mut Vec<FactPayload>) {
-    if node.kind() == "function_definition" {
-        collect_python_function_parameter_defaults(node, source, facts);
-    }
-
-    for child in named_children(node) {
-        collect_python_facts(child, source, facts);
-    }
-}
-
-fn collect_python_function_parameter_defaults(
-    function: Node<'_>,
-    source: &SourceFile,
-    facts: &mut Vec<FactPayload>,
-) {
-    let Some(function_name) = child_text(function, "name", source) else {
-        return;
-    };
-    let Some(parameters) = child_by_kind(function, "parameters") else {
-        return;
-    };
-
-    for parameter in named_children(parameters) {
-        if parameter.kind() != "default_parameter" {
-            continue;
-        }
-
-        let Some(parameter_name) = child_text(parameter, "name", source) else {
-            continue;
-        };
-        let Some(default_value) = child_by_field_or_named_index(parameter, "value", 1) else {
-            continue;
-        };
-
-        facts.push(FactPayload::Python(PythonFactPayload::ParameterDefault {
-            span: span_payload(parameter, source),
-            function_name: function_name.clone(),
-            parameter_name,
-            literal: literal_payload(default_value, source),
-        }));
-    }
-}
-
-fn collect_typescript_facts(node: Node<'_>, source: &SourceFile, facts: &mut Vec<FactPayload>) {
-    match node.kind() {
-        "debugger_statement" => {
-            facts.push(FactPayload::TypeScript(TypeScriptFactPayload::Debugger {
-                span: span_payload(node, source),
-            }))
-        }
-        "call_expression" => {
-            if let Some(callee) = child_text(node, "function", source) {
-                facts.push(FactPayload::TypeScript(TypeScriptFactPayload::Call {
-                    span: span_payload(node, source),
-                    callee,
-                }));
-            }
-        }
-        "member_expression" => {
-            if let (Some(object), Some(property)) = (
-                child_text(node, "object", source),
-                child_text(node, "property", source),
-            ) {
-                facts.push(FactPayload::TypeScript(
-                    TypeScriptFactPayload::MemberAccess {
-                        span: span_payload(node, source),
-                        object,
-                        property,
-                    },
-                ));
-            }
-        }
-        _ => {}
-    }
-
-    for child in named_children(node) {
-        collect_typescript_facts(child, source, facts);
-    }
-}
-
-fn literal_payload(node: Node<'_>, source: &SourceFile) -> LiteralPayload {
-    match node.kind() {
-        "list" => LiteralPayload::List,
-        "dictionary" => LiteralPayload::Dict,
-        "set" => LiteralPayload::Set,
-        "call" if child_text(node, "function", source).as_deref() == Some("set") => {
-            LiteralPayload::Set
-        }
-        _ => LiteralPayload::Other,
-    }
-}
-
-fn span_payload(node: Node<'_>, source: &SourceFile) -> SpanPayload {
-    let bytes = node.byte_range();
-    let span = source.line_index().source_span(
-        source.file_id().clone(),
-        ByteSpan::new(bytes.start, bytes.end),
-    );
-
-    SpanPayload {
-        file: span.file.to_string(),
-        start_byte: span.bytes.start,
-        end_byte: span.bytes.end,
-        start_line: span.start.line,
-        start_column: span.start.column,
-        end_line: span.end.line,
-        end_column: span.end.column,
-    }
-}
-
-fn child_by_kind<'tree>(node: Node<'tree>, kind: &str) -> Option<Node<'tree>> {
-    named_children(node)
-        .into_iter()
-        .find(|child| child.kind() == kind)
-}
-
-fn child_by_field_or_named_index<'tree>(
-    node: Node<'tree>,
-    field_name: &str,
-    fallback_index: u32,
-) -> Option<Node<'tree>> {
-    node.child_by_field_name(field_name)
-        .or_else(|| node.named_child(fallback_index))
-}
-
-fn child_text(node: Node<'_>, field_name: &str, source: &SourceFile) -> Option<String> {
-    let child = node.child_by_field_name(field_name)?;
-    node_text(child, source)
-}
-
-fn node_text(node: Node<'_>, source: &SourceFile) -> Option<String> {
-    node.utf8_text(source.text().as_bytes())
-        .ok()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-fn named_children(node: Node<'_>) -> Vec<Node<'_>> {
-    let mut cursor = node.walk();
-    node.children(&mut cursor).filter(Node::is_named).collect()
-}
-
 #[cfg(test)]
 mod tests {
+    use knot_abi::{LiteralPayload, PythonFactPayload, SpanPayload, TypeScriptFactPayload};
     use knot_diagnostics::FileId;
     use knot_parser::{Language, SourceFile, parse_source};
 

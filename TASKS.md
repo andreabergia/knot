@@ -1,5 +1,5 @@
 - [ ] integrate `ignore` crate to walk input files
 - [ ] define symlink traversal policy and prevent checks from escaping input roots or cycling
 - [ ] parallel parsing
-- [ ] split fact generation by language into separate files
+- [x] split fact generation by language into separate files
 - [ ] split language support in multiple features
