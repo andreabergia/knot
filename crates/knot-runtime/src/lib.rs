@@ -7,6 +7,8 @@ pub use knot_diagnostics::RuleId;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
+    #[error("failed to configure Wasm runtime: {0}")]
+    Configuration(String),
     #[error("failed to compile Wasm module: {0}")]
     Compile(String),
     #[error("failed to instantiate Wasm module: {0}")]
@@ -18,25 +20,56 @@ pub enum RuntimeError {
         export: &'static str,
         message: String,
     },
+    #[error("Wasm export {export} trapped: {message}")]
+    GuestTrap {
+        export: &'static str,
+        message: String,
+    },
+    #[error("Wasm export {export} exhausted its fuel budget")]
+    FuelExhausted { export: &'static str },
+    #[error("Wasm export {export} exceeded its memory limit")]
+    MemoryLimitExceeded { export: &'static str },
     #[error("failed to access guest memory: {0}")]
     Memory(String),
     #[error("{0}")]
     Abi(#[from] AbiError),
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RuntimeLimits {
+    pub fuel: u64,
+    pub memory_bytes: usize,
+}
+
+impl Default for RuntimeLimits {
+    fn default() -> Self {
+        Self {
+            fuel: 1_000_000,
+            memory_bytes: 16 * 1024 * 1024,
+        }
+    }
+}
+
 pub struct WasmRuntime {
     engine: wasmtime::Engine,
+    limits: RuntimeLimits,
 }
 
 impl WasmRuntime {
     pub fn new() -> Self {
-        Self {
-            engine: wasmtime::Engine::default(),
-        }
+        Self::with_limits(RuntimeLimits::default()).expect("default runtime configuration is valid")
+    }
+
+    pub fn with_limits(limits: RuntimeLimits) -> Result<Self, RuntimeError> {
+        let mut config = wasmtime::Config::new();
+        config.consume_fuel(true);
+        let engine = wasmtime::Engine::new(&config)
+            .map_err(|error| RuntimeError::Configuration(error.to_string()))?;
+        Ok(Self { engine, limits })
     }
 
     pub fn metadata(&self, wasm: &[u8]) -> Result<RuleMetadata, RuntimeError> {
-        let mut instance = RuleInstance::new(&self.engine, wasm)?;
+        let mut instance = RuleInstance::new(&self.engine, wasm, self.limits)?;
         let bytes = instance.call_metadata()?;
         let metadata: RuleMetadata = decode_json(&bytes)?;
         metadata.validate_abi()?;
@@ -48,7 +81,7 @@ impl WasmRuntime {
         wasm: &[u8],
         input: &RuleInput,
     ) -> Result<Vec<DiagnosticPayload>, RuntimeError> {
-        let mut instance = RuleInstance::new(&self.engine, wasm)?;
+        let mut instance = RuleInstance::new(&self.engine, wasm, self.limits)?;
         let metadata_bytes = instance.call_metadata()?;
         let metadata: RuleMetadata = decode_json(&metadata_bytes)?;
         metadata.validate_abi()?;
@@ -65,8 +98,12 @@ impl Default for WasmRuntime {
     }
 }
 
+struct StoreState {
+    limits: wasmtime::StoreLimits,
+}
+
 struct RuleInstance {
-    store: wasmtime::Store<()>,
+    store: wasmtime::Store<StoreState>,
     memory: wasmtime::Memory,
     alloc: wasmtime::TypedFunc<u32, u32>,
     dealloc: wasmtime::TypedFunc<(u32, u32), ()>,
@@ -75,10 +112,27 @@ struct RuleInstance {
 }
 
 impl RuleInstance {
-    fn new(engine: &wasmtime::Engine, wasm: &[u8]) -> Result<Self, RuntimeError> {
+    fn new(
+        engine: &wasmtime::Engine,
+        wasm: &[u8],
+        limits: RuntimeLimits,
+    ) -> Result<Self, RuntimeError> {
         let module = wasmtime::Module::new(engine, wasm)
             .map_err(|error| RuntimeError::Compile(error.to_string()))?;
-        let mut store = wasmtime::Store::new(engine, ());
+        let store_limits = wasmtime::StoreLimitsBuilder::new()
+            .memory_size(limits.memory_bytes)
+            .trap_on_grow_failure(true)
+            .build();
+        let mut store = wasmtime::Store::new(
+            engine,
+            StoreState {
+                limits: store_limits,
+            },
+        );
+        store.limiter(|state| &mut state.limits);
+        store
+            .set_fuel(limits.fuel)
+            .map_err(|error| RuntimeError::Configuration(error.to_string()))?;
         let instance = wasmtime::Instance::new(&mut store, &module, &[])
             .map_err(|error| RuntimeError::Instantiate(error.to_string()))?;
         let memory = instance
@@ -108,13 +162,10 @@ impl RuleInstance {
     }
 
     fn call_metadata(&mut self) -> Result<Vec<u8>, RuntimeError> {
-        let packed =
-            self.metadata
-                .call(&mut self.store, ())
-                .map_err(|error| RuntimeError::GuestCall {
-                    export: EXPORT_METADATA,
-                    message: error.to_string(),
-                })?;
+        let packed = self
+            .metadata
+            .call(&mut self.store, ())
+            .map_err(|error| classify_guest_error(EXPORT_METADATA, error))?;
         self.read_packed(packed)
     }
 
@@ -126,10 +177,7 @@ impl RuleInstance {
         let packed = self
             .check
             .call(&mut self.store, (ptr, input.len() as u32))
-            .map_err(|error| RuntimeError::GuestCall {
-                export: EXPORT_CHECK,
-                message: error.to_string(),
-            })?;
+            .map_err(|error| classify_guest_error(EXPORT_CHECK, error))?;
         self.call_dealloc(ptr, input.len() as u32)?;
         self.read_packed(packed)
     }
@@ -139,29 +187,51 @@ impl RuleInstance {
             u32::try_from(len).map_err(|_| RuntimeError::Memory("payload too large".into()))?;
         self.alloc
             .call(&mut self.store, len)
-            .map_err(|error| RuntimeError::GuestCall {
-                export: EXPORT_ALLOC,
-                message: error.to_string(),
-            })
+            .map_err(|error| classify_guest_error(EXPORT_ALLOC, error))
     }
 
     fn call_dealloc(&mut self, ptr: u32, len: u32) -> Result<(), RuntimeError> {
         self.dealloc
             .call(&mut self.store, (ptr, len))
-            .map_err(|error| RuntimeError::GuestCall {
-                export: EXPORT_DEALLOC,
-                message: error.to_string(),
-            })
+            .map_err(|error| classify_guest_error(EXPORT_DEALLOC, error))
     }
 
     fn read_packed(&mut self, packed: u64) -> Result<Vec<u8>, RuntimeError> {
         let ptr = (packed >> 32) as u32;
         let len = packed as u32;
+        let end = (ptr as usize)
+            .checked_add(len as usize)
+            .ok_or_else(|| RuntimeError::Memory("guest output range overflowed".to_owned()))?;
+        if end > self.memory.data_size(&self.store) {
+            return Err(RuntimeError::Memory(
+                "guest output range exceeds guest memory".to_owned(),
+            ));
+        }
         let mut bytes = vec![0; len as usize];
         self.memory
             .read(&self.store, ptr as usize, &mut bytes)
             .map_err(|error| RuntimeError::Memory(error.to_string()))?;
         Ok(bytes)
+    }
+}
+
+fn classify_guest_error(export: &'static str, error: wasmtime::Error) -> RuntimeError {
+    if error.downcast_ref::<wasmtime::Trap>() == Some(&wasmtime::Trap::OutOfFuel) {
+        return RuntimeError::FuelExhausted { export };
+    }
+
+    let memory_limit_exceeded = error.chain().any(|cause| {
+        cause
+            .to_string()
+            .contains("forcing trap when growing memory")
+    });
+    let message = error.to_string();
+    if memory_limit_exceeded {
+        RuntimeError::MemoryLimitExceeded { export }
+    } else if error.downcast_ref::<wasmtime::Trap>().is_some() {
+        RuntimeError::GuestTrap { export, message }
+    } else {
+        RuntimeError::GuestCall { export, message }
     }
 }
 
@@ -234,6 +304,65 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn reports_guest_traps_without_panicking() {
+        let runtime = WasmRuntime::new();
+        let wasm = fixture_rule_wasm_with_check("unreachable");
+
+        assert!(matches!(
+            runtime.check(&wasm, &empty_input()),
+            Err(RuntimeError::GuestTrap {
+                export: EXPORT_CHECK,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn stops_rules_that_exhaust_fuel() {
+        let runtime = WasmRuntime::with_limits(RuntimeLimits {
+            fuel: 10_000,
+            ..RuntimeLimits::default()
+        })
+        .expect("runtime builds");
+        let wasm = fixture_rule_wasm_with_check("(loop $forever (br $forever))");
+
+        assert!(matches!(
+            runtime.check(&wasm, &empty_input()),
+            Err(RuntimeError::FuelExhausted {
+                export: EXPORT_CHECK
+            })
+        ));
+    }
+
+    #[test]
+    fn rejects_memory_growth_beyond_limit() {
+        let runtime = WasmRuntime::with_limits(RuntimeLimits {
+            memory_bytes: 64 * 1024,
+            ..RuntimeLimits::default()
+        })
+        .expect("runtime builds");
+        let wasm = fixture_rule_wasm_with_check("(drop (memory.grow (i32.const 1)))");
+
+        let result = runtime.check(&wasm, &empty_input());
+        assert!(
+            matches!(
+                result,
+                Err(RuntimeError::MemoryLimitExceeded {
+                    export: EXPORT_CHECK
+                })
+            ),
+            "unexpected result: {result:?}"
+        );
+    }
+
+    fn empty_input() -> RuleInput {
+        RuleInput {
+            facts: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+
     fn fixture_rule_wasm(abi_version: u32) -> Vec<u8> {
         let metadata = format!(
             r#"{{"abi_version":{abi_version},"id":"knot/test-rule","name":"Test Rule","severity":"warning"}}"#
@@ -270,6 +399,35 @@ mod tests {
             diagnostics = wat_string(diagnostics),
             metadata_len = metadata.len(),
             diagnostics_len = diagnostics.len(),
+        );
+        wat::parse_str(wat).expect("fixture wat compiles")
+    }
+
+    fn fixture_rule_wasm_with_check(check_body: &str) -> Vec<u8> {
+        let metadata =
+            r#"{"abi_version":1,"id":"knot/test-rule","name":"Test Rule","severity":"warning"}"#;
+        let wat = format!(
+            r#"
+            (module
+              (memory (export "memory") 1)
+              (data (i32.const 16) "{metadata}")
+
+              (func (export "knot_alloc") (param $len i32) (result i32)
+                (i32.const 1024))
+
+              (func (export "knot_dealloc") (param $ptr i32) (param $len i32))
+
+              (func (export "knot_metadata") (result i64)
+                (i64.or
+                  (i64.shl (i64.const 16) (i64.const 32))
+                  (i64.const {metadata_len})))
+
+              (func (export "knot_check") (param $ptr i32) (param $len i32) (result i64)
+                {check_body}
+                (i64.const 0)))
+            "#,
+            metadata = wat_string(metadata),
+            metadata_len = metadata.len(),
         );
         wat::parse_str(wat).expect("fixture wat compiles")
     }
