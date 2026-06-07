@@ -178,26 +178,29 @@ Exit criteria:
 
 Goal: run simple Wasm rules end to end before building deep semantics.
 
+Status: in progress.
+
 Tasks:
 
-- choose the initial Wasm runtime
-- define ABI versioning
-- define fact serialization
-- define memory ownership for strings, spans, facts, and diagnostics
-- define rule metadata export
-- define the minimal syntax facts needed by the first rules
-- define diagnostic structure
-- add rule registry
-- add scheduler for single-file rules
-- add timeout and memory limits
-- recover cleanly from rule failures
-- add Wasm rule fixture harness
-- emit JSON and human-readable diagnostics
+- choose the initial Wasm runtime: Wasmtime - done
+- define ABI versioning - done
+- define fact serialization: UTF-8 JSON bytes - done
+- define memory ownership for strings, spans, facts, and diagnostics - done
+- define rule metadata export - done
+- define the minimal syntax facts needed by the first rules - done
+- define diagnostic structure - done
+- add bundled rule registry - done
+- add scheduler for single-file bundled rules - done
+- add timeout and memory limits - done
+- recover cleanly from rule failures - done
+- add Wasm rule fixture harness - done
+- emit human-readable diagnostics - done
+- emit JSON diagnostics
 
 First rules:
 
 - Python mutable default argument
-- TypeScript `debugger`
+- TypeScript `debugger` - done
 - TypeScript `console.*`
 
 Minimal facts for those rules:
@@ -208,11 +211,11 @@ Minimal facts for those rules:
 
 Exit criteria:
 
-- CLI runs selected rules on selected files
+- CLI runs bundled rules by default on selected files
 - diagnostics have stable rule IDs, messages, severity, and spans
 - fixture tests cover all first rules
-- rule failures cannot crash the host
-- ABI version mismatch produces a clear error
+- rule failures cannot crash the host - done
+- ABI version mismatch produces a clear error - done
 
 ## Milestone 3: Python Semantic Adapter
 
