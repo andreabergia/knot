@@ -1,0 +1,3 @@
+function inspect() {
+  debugger;
+}

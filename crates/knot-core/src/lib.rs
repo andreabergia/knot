@@ -3,11 +3,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod bundled_rules;
+
+use knot_abi::{DiagnosticPayload, RuleInput};
 pub use knot_diagnostics::{
     ByteSpan, Diagnostic, DiagnosticMessage, FileId, LineColumn, RuleId, Severity, SourceSpan,
     sort_diagnostics,
 };
+use knot_facts::extract_facts;
 use knot_parser::{Language, SourceFile, parse_source};
+use knot_runtime::WasmRuntime;
 
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
@@ -28,9 +33,18 @@ pub enum CheckError {
         path: PathBuf,
         source: knot_parser::ParseError,
     },
+    #[error("bundled rule {rule_id} failed: {message}")]
+    BundledRule { rule_id: String, message: String },
 }
 
 pub fn check_paths(paths: &[PathBuf]) -> Result<Vec<Diagnostic>, CheckError> {
+    check_paths_with_rules(paths, bundled_rules::RULES)
+}
+
+fn check_paths_with_rules(
+    paths: &[PathBuf],
+    rules: &[bundled_rules::BundledRule],
+) -> Result<Vec<Diagnostic>, CheckError> {
     for path in paths {
         if !path.exists() {
             return Err(CheckError::MissingPath(path.clone()));
@@ -38,9 +52,10 @@ pub fn check_paths(paths: &[PathBuf]) -> Result<Vec<Diagnostic>, CheckError> {
     }
 
     let mut diagnostics = Vec::new();
+    let runtime = WasmRuntime::new();
 
     for path in paths {
-        check_path(path, &mut diagnostics)?;
+        check_path(path, &runtime, rules, &mut diagnostics)?;
     }
 
     sort_diagnostics(&mut diagnostics);
@@ -48,22 +63,32 @@ pub fn check_paths(paths: &[PathBuf]) -> Result<Vec<Diagnostic>, CheckError> {
     Ok(diagnostics)
 }
 
-fn check_path(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(), CheckError> {
+fn check_path(
+    path: &Path,
+    runtime: &WasmRuntime,
+    rules: &[bundled_rules::BundledRule],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CheckError> {
     let metadata = fs::metadata(path).map_err(|error| CheckError::InspectPath {
         path: path.to_path_buf(),
         message: error.to_string(),
     })?;
 
     if metadata.is_dir() {
-        check_directory(path, diagnostics)
+        check_directory(path, runtime, rules, diagnostics)
     } else if metadata.is_file() {
-        check_file(path, diagnostics)
+        check_file(path, runtime, rules, diagnostics)
     } else {
         Ok(())
     }
 }
 
-fn check_directory(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(), CheckError> {
+fn check_directory(
+    path: &Path,
+    runtime: &WasmRuntime,
+    rules: &[bundled_rules::BundledRule],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CheckError> {
     let entries = fs::read_dir(path).map_err(|error| CheckError::ReadDirectory {
         path: path.to_path_buf(),
         message: error.to_string(),
@@ -82,13 +107,18 @@ fn check_directory(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(),
     entry_paths.sort();
 
     for entry_path in entry_paths {
-        check_path(&entry_path, diagnostics)?;
+        check_path(&entry_path, runtime, rules, diagnostics)?;
     }
 
     Ok(())
 }
 
-fn check_file(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(), CheckError> {
+fn check_file(
+    path: &Path,
+    runtime: &WasmRuntime,
+    rules: &[bundled_rules::BundledRule],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Result<(), CheckError> {
     let Some(language) = Language::from_path(path) else {
         return Ok(());
     };
@@ -103,7 +133,30 @@ fn check_file(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> Result<(), Chec
         source,
     })?;
 
-    diagnostics.extend(parsed.syntax_diagnostics(&source));
+    let syntax_diagnostics = parsed.syntax_diagnostics(&source);
+    let input = RuleInput {
+        facts: extract_facts(&source, &parsed),
+        diagnostics: syntax_diagnostics
+            .iter()
+            .map(DiagnosticPayload::from)
+            .collect(),
+    };
+    diagnostics.extend(syntax_diagnostics);
+
+    for rule in rules {
+        let rule_diagnostics =
+            runtime
+                .check(rule.wasm, &input)
+                .map_err(|error| CheckError::BundledRule {
+                    rule_id: rule.id.to_owned(),
+                    message: error.to_string(),
+                })?;
+        diagnostics.extend(
+            rule_diagnostics
+                .into_iter()
+                .map(DiagnosticPayload::into_diagnostic),
+        );
+    }
 
     Ok(())
 }
@@ -157,6 +210,59 @@ mod tests {
                 LineColumn::new(1, 12),
             ))
         );
+    }
+
+    #[test]
+    fn check_paths_runs_bundled_typescript_debugger_rule() {
+        let temp = TempFixture::new("typescript-debugger");
+        let source_path = temp.write_file("debugger.ts", "const answer = 42;\ndebugger;\n");
+
+        let diagnostics = check_paths(std::slice::from_ref(&source_path)).expect("check succeeds");
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].rule_id, RuleId::new("knot/ts-debugger"));
+        assert_eq!(
+            diagnostics[0].message,
+            DiagnosticMessage::new("Unexpected debugger statement.")
+        );
+        assert_eq!(diagnostics[0].severity, Severity::Warning);
+        assert_eq!(
+            diagnostics[0].span,
+            Some(SourceSpan::new(
+                FileId::new(source_path),
+                ByteSpan::new(19, 28),
+                LineColumn::new(2, 1),
+                LineColumn::new(2, 10),
+            ))
+        );
+    }
+
+    #[test]
+    fn check_paths_accepts_an_empty_ruleset() {
+        let temp = TempFixture::new("empty-ruleset");
+        let source_path = temp.write_file("debugger.ts", "debugger;\n");
+
+        let diagnostics = check_paths_with_rules(std::slice::from_ref(&source_path), &[])
+            .expect("check succeeds");
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn check_paths_reports_malformed_bundled_rules() {
+        let temp = TempFixture::new("malformed-rule");
+        let source_path = temp.write_file("sample.ts", "const answer = 42;\n");
+        let malformed_rule = bundled_rules::BundledRule {
+            id: "knot/malformed",
+            wasm: b"not wasm",
+        };
+
+        let error = check_paths_with_rules(&[source_path], &[malformed_rule]).unwrap_err();
+
+        assert!(matches!(
+            error,
+            CheckError::BundledRule { rule_id, .. } if rule_id == "knot/malformed"
+        ));
     }
 
     #[test]

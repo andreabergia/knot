@@ -74,6 +74,21 @@ fn check_syntax_error_prints_location() {
 }
 
 #[test]
+fn check_typescript_debugger_prints_bundled_rule_diagnostic() {
+    let mut command = Command::cargo_bin("knot").expect("binary should build");
+
+    let output = command
+        .args(["check", "tests/error-fixtures/debugger.ts"])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stdout), @"tests/error-fixtures/debugger.ts:2:3: warning[knot/ts-debugger]: Unexpected debugger statement.");
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stderr), @"");
+}
+
+#[test]
 fn check_missing_path_fails() {
     let mut command = Command::cargo_bin("knot").expect("binary should build");
 
