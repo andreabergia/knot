@@ -1050,6 +1050,8 @@ dependencies = [
  "insta",
  "knot-core",
  "predicates",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

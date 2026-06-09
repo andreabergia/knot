@@ -14,6 +14,8 @@ path = "src/main.rs"
 anyhow.workspace = true
 clap = { version = "4.5.50", features = ["derive"] }
 knot-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 assert_cmd = "2.1.1"

@@ -195,7 +195,7 @@ Tasks:
 - recover cleanly from rule failures - done
 - add Wasm rule fixture harness - done
 - emit human-readable diagnostics - done
-- emit JSON diagnostics
+- emit JSON diagnostics - done
 
 First rules:
 

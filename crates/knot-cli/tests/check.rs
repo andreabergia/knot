@@ -89,6 +89,43 @@ fn check_typescript_debugger_prints_bundled_rule_diagnostic() {
 }
 
 #[test]
+fn check_json_format_prints_json_diagnostics() {
+    let mut command = Command::cargo_bin("knot").expect("binary should build");
+
+    let output = command
+        .args([
+            "check",
+            "--format",
+            "json",
+            "tests/error-fixtures/debugger.ts",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stdout), @r#"
+[
+  {
+    "rule_id": "knot/ts-debugger",
+    "severity": "warning",
+    "message": "Unexpected debugger statement.",
+    "span": {
+      "file": "tests/error-fixtures/debugger.ts",
+      "start_byte": 23,
+      "end_byte": 32,
+      "start_line": 2,
+      "start_column": 3,
+      "end_line": 2,
+      "end_column": 12
+    }
+  }
+]
+"#);
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stderr), @"");
+}
+
+#[test]
 fn check_missing_path_fails() {
     let mut command = Command::cargo_bin("knot").expect("binary should build");
 
