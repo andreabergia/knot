@@ -114,14 +114,14 @@ Status: complete.
 
 Tasks:
 
-- create Rust workspace - done
-- add core crates - done
-- add basic CLI binary - done
-- add snapshot-style test harness - done
-- add fixture layout for Python and TypeScript - done
-- add CI with format, lint, and tests - done
-- add initial architecture documentation - done
-- establish typed error and newtype conventions - done
+- create Rust workspace - ✅
+- add core crates - ✅
+- add basic CLI binary - ✅
+- add snapshot-style test harness - ✅
+- add fixture layout for Python and TypeScript - ✅
+- add CI with format, lint, and tests - ✅
+- add initial architecture documentation - ✅
+- establish typed error and newtype conventions - ✅
 
 Current crate layout:
 
@@ -161,18 +161,18 @@ Status: complete.
 
 Tasks:
 
-- integrate Arborium-backed Tree-sitter parsing - done
-- add Python parser - done
-- add TypeScript/TSX parser - done
-- represent files and line/column mapping - done
-- expose parse errors as diagnostics - done
-- support incremental parse internally, but do not optimize around it yet - done
+- integrate Arborium-backed Tree-sitter parsing - ✅
+- add Python parser - ✅
+- add TypeScript/TSX parser - ✅
+- represent files and line/column mapping - ✅
+- expose parse errors as diagnostics - ✅
+- support incremental parse internally, but do not optimize around it yet - ✅
 
 Exit criteria:
 
-- CLI parses Python and TypeScript files - done
-- parse errors include useful spans - done
-- tests cover UTF-8, multiline spans, and syntax errors - done
+- CLI parses Python and TypeScript files - ✅
+- parse errors include useful spans - ✅
+- tests cover UTF-8, multiline spans, and syntax errors - ✅
 
 ## Milestone 2: Wasm Rule Pipeline
 
@@ -182,25 +182,25 @@ Status: in progress.
 
 Tasks:
 
-- choose the initial Wasm runtime: Wasmtime - done
-- define ABI versioning - done
-- define fact serialization: UTF-8 JSON bytes - done
-- define memory ownership for strings, spans, facts, and diagnostics - done
-- define rule metadata export - done
-- define the minimal syntax facts needed by the first rules - done
-- define diagnostic structure - done
-- add bundled rule registry - done
-- add scheduler for single-file bundled rules - done
-- add timeout and memory limits - done
-- recover cleanly from rule failures - done
-- add Wasm rule fixture harness - done
-- emit human-readable diagnostics - done
-- emit JSON diagnostics - done
+- choose the initial Wasm runtime: Wasmtime - ✅
+- define ABI versioning - ✅
+- define fact serialization: UTF-8 JSON bytes - ✅
+- define memory ownership for strings, spans, facts, and diagnostics - ✅
+- define rule metadata export - ✅
+- define the minimal syntax facts needed by the first rules - ✅
+- define diagnostic structure - ✅
+- add bundled rule registry - ✅
+- add scheduler for single-file bundled rules - ✅
+- add timeout and memory limits - ✅
+- recover cleanly from rule failures - ✅
+- add Wasm rule fixture harness - ✅
+- emit human-readable diagnostics - ✅
+- emit JSON diagnostics - ✅
 
 First rules:
 
 - Python mutable default argument
-- TypeScript `debugger` - done
+- TypeScript `debugger` - ✅
 - TypeScript `console.*`
 
 Minimal facts for those rules:
@@ -211,11 +211,11 @@ Minimal facts for those rules:
 
 Exit criteria:
 
-- CLI runs bundled rules by default on selected files
-- diagnostics have stable rule IDs, messages, severity, and spans
+- CLI runs bundled rules by default on selected files - ✅
+- diagnostics have stable rule IDs, messages, severity, and spans - ✅
 - fixture tests cover all first rules
-- rule failures cannot crash the host - done
-- ABI version mismatch produces a clear error - done
+- rule failures cannot crash the host - ✅
+- ABI version mismatch produces a clear error - ✅
 
 ## Milestone 3: Python Semantic Adapter
 
@@ -469,17 +469,17 @@ This proves the pipeline without requiring the hardest semantic work upfront.
 
 ## Near-Term Task Order
 
-1. Add source file loading and deterministic path discovery - done.
-2. Add line/column source mapping tests for UTF-8 and multiline spans - done.
-3. Integrate Arborium-backed Tree-sitter parsing and add Python parsing - done.
-4. Expose Python parse errors as diagnostics - done.
-5. Add TypeScript and TSX parsing - done.
-6. Expose TypeScript/TSX parse errors as diagnostics - done.
-7. Wire parser diagnostics into `knot check` - done.
+1. Add source file loading and deterministic path discovery - ✅.
+2. Add line/column source mapping tests for UTF-8 and multiline spans - ✅.
+3. Integrate Arborium-backed Tree-sitter parsing and add Python parsing - ✅.
+4. Expose Python parse errors as diagnostics - ✅.
+5. Add TypeScript and TSX parsing - ✅.
+6. Expose TypeScript/TSX parse errors as diagnostics - ✅.
+7. Wire parser diagnostics into `knot check` - ✅.
 8. Expand fixture snapshots for valid files, syntax errors, UTF-8, and
-   multiline spans - done.
-9. Define the first Wasm ABI.
-10. Implement the Wasm runtime, rule registry, and scheduler.
+   multiline spans - ✅.
+9. Define the first Wasm ABI - ✅.
+10. Implement the Wasm runtime, rule registry, and scheduler - ✅.
 11. Implement the first three syntax-oriented rules as Wasm fixtures.
-12. Add JSON output.
+12. Add JSON output - ✅.
 13. Start Python scope and binding facts.
