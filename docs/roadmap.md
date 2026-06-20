@@ -133,6 +133,7 @@ crates/
   knot-facts/
   knot-runtime/
   knot-abi/
+  knot-sdk/
   knot-diagnostics/
 ```
 
@@ -216,6 +217,43 @@ Exit criteria:
 - fixture tests cover all first rules - ✅
 - rule failures cannot crash the host - ✅
 - ABI version mismatch produces a clear error - ✅
+
+## Milestone 2.5: Rule SDK
+
+Goal: provide an ergonomic Rust SDK so rule authors can write rules without
+touching raw Wasm or the ABI directly.
+
+This is an intentionally simple first version of the SDK. It will evolve as the
+fact model grows and the ABI matures through later milestones. The SDK is a
+developer-experience layer — the raw ABI remains the ground truth underneath.
+
+Tasks:
+
+- add `knot-sdk` crate to the workspace
+- expose ergonomic Rust types wrapping the ABI (facts, spans, diagnostics)
+- provide a proc-macro or declarative macro for rule metadata (name, ID,
+  severity, language filter)
+- expose a simple registration interface (e.g. `register!(MyRule)`) so rules
+  are discovered automatically
+- handle fact deserialization and diagnostic serialization transparently
+- migrate the three existing Wasm rules to use the SDK:
+  - Python mutable default argument
+  - TypeScript `debugger`
+  - TypeScript `console.*`
+- verify migrated rules pass the same fixture tests as the raw Wasm versions
+
+Exit criteria:
+
+- writing a new rule requires no direct ABI interaction
+- all three existing rules pass their fixture tests when reimplemented via the
+  SDK
+- a new trivial rule can be written in ~10 lines of Rust
+- the SDK crate compiles to `wasm32-unknown-unknown`
+
+Note: the SDK is expected to grow as new fact types (scopes, bindings, imports,
+etc.) are introduced in Milestones 3 and 5. Those milestones will both consume
+and drive improvements to the SDK. Milestone 7 will revisit the SDK for
+stabilization alongside the ABI.
 
 ## Milestone 3: Python Semantic Adapter
 
@@ -343,12 +381,13 @@ Goal: make the Wasm plugin runtime robust enough for third-party rules.
 Tasks:
 
 - stabilize the ABI after real rule feedback
+- stabilize the `knot-sdk` public API based on usage from Milestones 3-5
 - add compatibility tests across ABI versions
 - add richer rule configuration
 - add packaged rule loading
 - add plugin discovery
 - improve sandbox resource accounting
-- document the guest SDK
+- document the guest SDK (both the raw ABI and the Rust SDK)
 
 Recommended approach:
 
@@ -482,4 +521,5 @@ This proves the pipeline without requiring the hardest semantic work upfront.
 10. Implement the Wasm runtime, rule registry, and scheduler - ✅.
 11. Implement the first three syntax-oriented rules as Wasm fixtures - ✅.
 12. Add JSON output - ✅.
-13. Start Python scope and binding facts.
+13. Add Rule SDK crate and migrate the three existing rules to it.
+14. Start Python scope and binding facts.
