@@ -3,10 +3,20 @@ pub struct BundledRule {
     pub wasm: &'static [u8],
 }
 
-pub const RULES: &[BundledRule] = &[BundledRule {
-    id: "knot/ts-debugger",
-    wasm: include_bytes!(concat!(env!("OUT_DIR"), "/ts-debugger.wasm")),
-}];
+pub const RULES: &[BundledRule] = &[
+    BundledRule {
+        id: "knot/ts-debugger",
+        wasm: include_bytes!(concat!(env!("OUT_DIR"), "/ts-debugger.wasm")),
+    },
+    BundledRule {
+        id: "knot/ts-console",
+        wasm: include_bytes!(concat!(env!("OUT_DIR"), "/ts-console.wasm")),
+    },
+    BundledRule {
+        id: "knot/py-mutable-default-arg",
+        wasm: include_bytes!(concat!(env!("OUT_DIR"), "/py-mutable-default-arg.wasm")),
+    },
+];
 
 #[cfg(test)]
 mod tests {

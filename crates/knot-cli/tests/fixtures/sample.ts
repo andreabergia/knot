@@ -1,1 +1,1 @@
-console.log("hello");
+const answer = 42;

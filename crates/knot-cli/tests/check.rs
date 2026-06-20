@@ -40,7 +40,7 @@ fn check_multiple_existing_paths_succeeds_without_diagnostics() {
     let typescript = temp.child("sample.ts");
     python.write_str("print('hello')\n").expect("write fixture");
     typescript
-        .write_str("console.log('hello');\n")
+        .write_str("const answer = 42;\n")
         .expect("write fixture");
 
     let mut command = Command::cargo_bin("knot").expect("binary should build");
@@ -85,6 +85,43 @@ fn check_typescript_debugger_prints_bundled_rule_diagnostic() {
         .clone();
 
     insta::assert_snapshot!(String::from_utf8_lossy(&output.stdout), @"tests/error-fixtures/debugger.ts:2:3: warning[knot/ts-debugger]: Unexpected debugger statement.");
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stderr), @"");
+}
+
+#[test]
+fn check_typescript_console_prints_bundled_rule_diagnostics() {
+    let mut command = Command::cargo_bin("knot").expect("binary should build");
+
+    let output = command
+        .args(["check", "tests/error-fixtures/console.ts"])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stdout), @r#"
+tests/error-fixtures/console.ts:2:3: warning[knot/ts-console]: Unexpected console statement.
+tests/error-fixtures/console.ts:3:3: warning[knot/ts-console]: Unexpected console statement.
+"#);
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stderr), @"");
+}
+
+#[test]
+fn check_python_mutable_default_arg_prints_bundled_rule_diagnostics() {
+    let mut command = Command::cargo_bin("knot").expect("binary should build");
+
+    let output = command
+        .args(["check", "tests/error-fixtures/mutable_default.py"])
+        .assert()
+        .success()
+        .get_output()
+        .clone();
+
+    insta::assert_snapshot!(String::from_utf8_lossy(&output.stdout), @r#"
+tests/error-fixtures/mutable_default.py:1:17: warning[knot/py-mutable-default-arg]: Mutable default argument.
+tests/error-fixtures/mutable_default.py:4:15: warning[knot/py-mutable-default-arg]: Mutable default argument.
+tests/error-fixtures/mutable_default.py:7:10: warning[knot/py-mutable-default-arg]: Mutable default argument.
+"#);
     insta::assert_snapshot!(String::from_utf8_lossy(&output.stderr), @"");
 }
 

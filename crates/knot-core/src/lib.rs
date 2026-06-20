@@ -238,6 +238,72 @@ mod tests {
     }
 
     #[test]
+    fn check_paths_runs_bundled_typescript_console_rule() {
+        let temp = TempFixture::new("typescript-console");
+        let source_path = temp.write_file(
+            "console.ts",
+            "function debug() {\n  console.log(\"x\");\n}\n",
+        );
+
+        let diagnostics = check_paths(std::slice::from_ref(&source_path)).expect("check succeeds");
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].rule_id, RuleId::new("knot/ts-console"));
+        assert_eq!(
+            diagnostics[0].message,
+            DiagnosticMessage::new("Unexpected console statement.")
+        );
+        assert_eq!(diagnostics[0].severity, Severity::Warning);
+        assert_eq!(
+            diagnostics[0].span,
+            Some(SourceSpan::new(
+                FileId::new(source_path),
+                ByteSpan::new(21, 37),
+                LineColumn::new(2, 3),
+                LineColumn::new(2, 19),
+            ))
+        );
+    }
+
+    #[test]
+    fn check_paths_runs_bundled_python_mutable_default_arg_rule() {
+        let temp = TempFixture::new("python-mutable-default");
+        let source_path = temp.write_file("defaults.py", "def f(items=[]):\n    pass\n");
+
+        let diagnostics = check_paths(std::slice::from_ref(&source_path)).expect("check succeeds");
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0].rule_id,
+            RuleId::new("knot/py-mutable-default-arg")
+        );
+        assert_eq!(
+            diagnostics[0].message,
+            DiagnosticMessage::new("Mutable default argument.")
+        );
+        assert_eq!(diagnostics[0].severity, Severity::Warning);
+        assert_eq!(
+            diagnostics[0].span,
+            Some(SourceSpan::new(
+                FileId::new(source_path),
+                ByteSpan::new(6, 14),
+                LineColumn::new(1, 7),
+                LineColumn::new(1, 15),
+            ))
+        );
+    }
+
+    #[test]
+    fn check_paths_python_mutable_default_skips_immutable_defaults() {
+        let temp = TempFixture::new("python-immutable-default");
+        let source_path = temp.write_file("defaults.py", "def add(a, b=0):\n    return a + b\n");
+
+        let diagnostics = check_paths(std::slice::from_ref(&source_path)).expect("check succeeds");
+
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
     fn check_paths_accepts_an_empty_ruleset() {
         let temp = TempFixture::new("empty-ruleset");
         let source_path = temp.write_file("debugger.ts", "debugger;\n");

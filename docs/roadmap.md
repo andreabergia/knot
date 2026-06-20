@@ -178,7 +178,7 @@ Exit criteria:
 
 Goal: run simple Wasm rules end to end before building deep semantics.
 
-Status: in progress.
+Status: complete.
 
 Tasks:
 
@@ -199,21 +199,21 @@ Tasks:
 
 First rules:
 
-- Python mutable default argument
+- Python mutable default argument - ✅
 - TypeScript `debugger` - ✅
-- TypeScript `console.*`
+- TypeScript `console.*` - ✅
 
 Minimal facts for those rules:
 
-- Python function parameters and default-value literals
-- TypeScript debugger statements
-- TypeScript calls and member accesses
+- Python function parameters and default-value literals - ✅
+- TypeScript debugger statements - ✅
+- TypeScript calls and member accesses - ✅
 
 Exit criteria:
 
 - CLI runs bundled rules by default on selected files - ✅
 - diagnostics have stable rule IDs, messages, severity, and spans - ✅
-- fixture tests cover all first rules
+- fixture tests cover all first rules - ✅
 - rule failures cannot crash the host - ✅
 - ABI version mismatch produces a clear error - ✅
 
@@ -480,6 +480,6 @@ This proves the pipeline without requiring the hardest semantic work upfront.
    multiline spans - ✅.
 9. Define the first Wasm ABI - ✅.
 10. Implement the Wasm runtime, rule registry, and scheduler - ✅.
-11. Implement the first three syntax-oriented rules as Wasm fixtures.
+11. Implement the first three syntax-oriented rules as Wasm fixtures - ✅.
 12. Add JSON output - ✅.
 13. Start Python scope and binding facts.
