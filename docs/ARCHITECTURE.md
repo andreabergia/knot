@@ -43,6 +43,25 @@ not depend on a specific Wasm runtime.
 validates metadata through `knot-abi`, moves data across Wasm memory, calls rule
 exports, enforces resource limits, and converts plugin output into diagnostics.
 
+`knot-sdk` is the guest-side Rust SDK for writing Wasm rules. It provides the
+`Rule` trait, a `RuleContext` for accessing facts and syntax diagnostics, and
+a `register!` macro that generates all four ABI exports (`knot_alloc`,
+`knot_dealloc`, `knot_metadata`, `knot_check`), a bump allocator, and the JSON
+serialization glue transparently. Rule authors write only a `Rule` impl plus a
+3-line `[[bin]]` shim — no direct ABI interaction. The SDK compiles for both the
+host (for testing) and `wasm32-unknown-unknown` (for rules).
+
+`knot-xtask` is a host-only tooling binary. Its `build-rules` command builds the
+`rules/` workspace for `wasm32-unknown-unknown --release` and copies the
+resulting `.wasm` artifacts to `crates/knot-core/rules/build/` for embedding.
+Run via `cargo run -p knot-xtask -- build-rules`.
+
+Rules live in a separate `rules/` Cargo workspace to keep guest (wasm) crates
+out of the root workspace's `cargo test --workspace`. Each language has its own
+crate (e.g. `rules-ts`, `rules-python`), and each rule is a `[[bin]]` shim
+that calls `knot_sdk::register!`. Shared rule logic lives in the crate's
+`lib.rs`.
+
 ## ABI And Runtime Boundary
 
 `knot-abi` is the agreement between host and plugins. `knot-runtime` is the
@@ -52,7 +71,7 @@ For example, `knot-abi` can define:
 
 ```rust
 pub const ABI_VERSION: AbiVersion = AbiVersion::new(1);
-pub const EXPORT_METADATA: &str = "knot_rule_metadata";
+pub const EXPORT_METADATA: &str = "knot_metadata";
 ```
 
 Then `knot-runtime` can load a Wasm module, look up `EXPORT_METADATA`, decode
