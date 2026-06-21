@@ -1104,7 +1104,6 @@ name = "knot-sdk"
 version = "0.1.0"
 dependencies = [
  "knot-abi",
- "knot-diagnostics",
  "serde",
  "serde_json",
 ]

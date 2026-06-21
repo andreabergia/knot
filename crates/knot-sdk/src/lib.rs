@@ -4,7 +4,6 @@ pub use knot_abi::{
     ABI_VERSION, AbiVersion, DiagnosticPayload, FactPayload, LiteralPayload, PythonFactPayload,
     RuleMetadata, SeverityPayload, SpanPayload, TypeScriptFactPayload,
 };
-pub use knot_diagnostics::{ByteSpan, FileId, LineColumn, RuleId, Severity, SourceSpan};
 
 pub trait Rule: Default {
     fn metadata() -> RuleMetadata;
