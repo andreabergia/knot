@@ -1,7 +1,7 @@
 use knot_abi::RuleInput;
 
 pub use knot_abi::{
-    AbiVersion, ABI_VERSION, DiagnosticPayload, FactPayload, LiteralPayload, PythonFactPayload,
+    ABI_VERSION, AbiVersion, DiagnosticPayload, FactPayload, LiteralPayload, PythonFactPayload,
     RuleMetadata, SeverityPayload, SpanPayload, TypeScriptFactPayload,
 };
 pub use knot_diagnostics::{ByteSpan, FileId, LineColumn, RuleId, Severity, SourceSpan};
@@ -89,16 +89,11 @@ macro_rules! register {
 
         #[unsafe(no_mangle)]
         pub extern "C" fn knot_metadata() -> u64 {
-            let bytes =
-                $crate::encode_json(&<$ty as $crate::Rule>::metadata())
-                    .expect("metadata serialization failed");
+            let bytes = $crate::encode_json(&<$ty as $crate::Rule>::metadata())
+                .expect("metadata serialization failed");
             let ptr = knot_alloc(bytes.len() as u32);
             unsafe {
-                ::core::ptr::copy_nonoverlapping(
-                    bytes.as_ptr(),
-                    ptr as *mut u8,
-                    bytes.len(),
-                );
+                ::core::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr as *mut u8, bytes.len());
             }
             ((ptr as u64) << 32) | (bytes.len() as u64)
         }
@@ -110,11 +105,7 @@ macro_rules! register {
             let output = $crate::run_check::<$ty>(input_slice);
             let out_ptr = knot_alloc(output.len() as u32);
             unsafe {
-                ::core::ptr::copy_nonoverlapping(
-                    output.as_ptr(),
-                    out_ptr as *mut u8,
-                    output.len(),
-                );
+                ::core::ptr::copy_nonoverlapping(output.as_ptr(), out_ptr as *mut u8, output.len());
             }
             ((out_ptr as u64) << 32) | (output.len() as u64)
         }

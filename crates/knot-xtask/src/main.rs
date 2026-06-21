@@ -1,8 +1,4 @@
-use std::{
-    fs,
-    path::PathBuf,
-    process::Command,
-};
+use std::{fs, path::PathBuf, process::Command};
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -31,10 +27,7 @@ fn build_rules() -> anyhow::Result<()> {
     let workspace = workspace_root();
     let rules_manifest = workspace.join("rules/Cargo.toml");
 
-    println!(
-        "building rules workspace: {}",
-        rules_manifest.display()
-    );
+    println!("building rules workspace: {}", rules_manifest.display());
 
     let status = Command::new("cargo")
         .args([
