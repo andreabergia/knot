@@ -9,9 +9,6 @@ rust-version.workspace = true
 [lib]
 path = "src/lib.rs"
 
-[build-dependencies]
-wat.workspace = true
-
 [dependencies]
 knot-abi.workspace = true
 knot-diagnostics.workspace = true

@@ -1064,7 +1064,6 @@ dependencies = [
  "knot-parser",
  "knot-runtime",
  "thiserror 2.0.18",
- "wat",
 ]
 
 [[package]]
@@ -1098,6 +1097,23 @@ dependencies = [
  "thiserror 2.0.18",
  "wasmtime",
  "wat",
+]
+
+[[package]]
+name = "knot-sdk"
+version = "0.1.0"
+dependencies = [
+ "knot-abi",
+ "knot-diagnostics",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "knot-xtask"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
 ]
 
 [[package]]

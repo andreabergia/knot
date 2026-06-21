@@ -1,17 +1,15 @@
-use std::{env, fs, path::PathBuf};
-
-fn compile_wat(name: &str) {
-    let source = format!("rules/{name}.wat");
-    println!("cargo::rerun-if-changed={source}");
-
-    let wasm = wat::parse_file(&source).expect("bundled {name} rule should compile");
-    let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR should be set"))
-        .join(format!("{name}.wasm"));
-    fs::write(output, wasm).expect("bundled {name} rule should be written");
-}
-
 fn main() {
-    compile_wat("ts-debugger");
-    compile_wat("ts-console");
-    compile_wat("py-mutable-default-arg");
+    let expected: &[&str] = &["ts-debugger", "ts-console", "py-mutable-default-arg"];
+
+    for name in expected {
+        let path = format!("rules/build/{name}.wasm");
+        println!("cargo::rerun-if-changed={path}");
+
+        if !std::path::Path::new(&path).exists() {
+            panic!(
+                "bundled rule `{name}` not found at `{path}`.\n\
+                 Run `cargo run -p knot-xtask -- build-rules` first."
+            );
+        }
+    }
 }
