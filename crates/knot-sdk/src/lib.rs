@@ -75,10 +75,20 @@ macro_rules! register {
 
         #[unsafe(no_mangle)]
         pub extern "C" fn knot_alloc(len: u32) -> u32 {
+            // The host creates a fresh instance per `metadata()`/`check()`
+            // call, so the bump cursor resets implicitly. If instance reuse
+            // is ever introduced, this arena will exhaust after ~1 MiB of
+            // cumulative allocations and must be reset between calls.
             let offset;
             unsafe {
                 offset = HEAP_CURSOR;
-                HEAP_CURSOR += len as usize;
+                let next = offset
+                    .checked_add(len as usize)
+                    .expect("knot_alloc: overflow");
+                if next > HEAP.len() {
+                    panic!("knot_alloc: out of memory");
+                }
+                HEAP_CURSOR = next;
             }
             let base = unsafe { HEAP.as_ptr() as usize };
             (base + offset) as u32
