@@ -104,6 +104,20 @@ pub struct DiagnosticPayload {
 }
 
 impl DiagnosticPayload {
+    pub fn new(
+        rule_id: impl Into<String>,
+        severity: SeverityPayload,
+        message: impl Into<String>,
+        span: SpanPayload,
+    ) -> Self {
+        Self {
+            rule_id: rule_id.into(),
+            severity,
+            message: message.into(),
+            span,
+        }
+    }
+
     pub fn into_diagnostic(self) -> Diagnostic {
         let span = self.span.clone();
         Diagnostic::new(
