@@ -23,6 +23,12 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build rules
+        run: cargo run -p knot-xtask -- build-rules
+
       - name: Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
 
