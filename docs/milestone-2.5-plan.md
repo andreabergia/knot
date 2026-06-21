@@ -110,10 +110,16 @@ knot-lint/
 
 - Re-exports `knot_abi::{FactPayload, PythonFactPayload, TypeScriptFactPayload,
   RuleInput, DiagnosticPayload, SpanPayload, SeverityPayload, LiteralPayload,
-  RuleMetadata, AbiVersion, ABI_VERSION}` and the `Severity`/`Span`/etc. host
-  types via `knot_diagnostics` re-exports. Adds a thin
+  RuleMetadata, AbiVersion, ABI_VERSION}`. Adds a thin
   `DiagnosticPayload::new(rule_id, severity, message, span)` constructor so a
   rule doesn't repeat field names. ✅
+  > Deviation: the constructor lives on `DiagnosticPayload` in `knot-abi`
+  > rather than in `knot-sdk`. Rust's orphan rules forbid an inherent impl on
+  > a foreign type, so the impl must live next to the type definition. The
+  > SDK re-exports the type, so `knot_sdk::DiagnosticPayload::new(...)` is
+  > the call site rule authors use; only the impl block's crate differs.
+  > Also, the `Severity`/`Span`/etc. host-type re-exports via
+  > `knot_diagnostics` were dropped — no rule or SDK test consumed them.
 - `pub trait Rule: Default` with `fn metadata() -> RuleMetadata` and `fn
   check(&self, ctx: &RuleContext) -> Vec<DiagnosticPayload>`. The `Default`
   bound reflects that rules are stateless zero-sized config structs; config
@@ -264,3 +270,17 @@ Red → green per the repo's TDD rule. Each step lands green before the next.
    addresses, not Rust-relative offsets.
 5. **`include_bytes!` paths use `"../rules/build/…"`**: Relative to the source
    file (`src/bundled_rules.rs`), not the crate root.
+6. **`DiagnosticPayload::new` lives in `knot-abi`, not `knot-sdk`**: Rust's
+   orphan rules forbid an inherent impl on a foreign type. The SDK re-exports
+   the type, so the call site (`knot_sdk::DiagnosticPayload::new(...)`) is
+   unchanged; only the impl block's crate differs.
+7. **`knot_alloc` bounds-checks the arena**: the plan described a plain bump
+   allocator, but the implementation panics if `HEAP_CURSOR + len > HEAP.len()`
+   to prevent a large host input from overflowing the 1 MiB static and
+   corrupting adjacent linear memory. With `panic = "abort"` the panic traps
+   cleanly and the host classifies it as a `GuestTrap`.
+8. **Fresh-instance-per-call assumption**: the bump cursor never resets. This
+   is sound only because `WasmRuntime` creates a new `RuleInstance` for each
+   `metadata()`/`check()` call. Documented in a comment in the `register!`
+   macro so a future refactorer introducing instance reuse doesn't exhaust
+   the arena after ~1 MiB of cumulative allocations.
