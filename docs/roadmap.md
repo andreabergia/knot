@@ -134,7 +134,11 @@ crates/
   knot-runtime/
   knot-abi/
   knot-sdk/
+  knot-xtask/
   knot-diagnostics/
+rules/
+  ts/
+  python/
 ```
 
 Exit criteria:
@@ -223,32 +227,36 @@ Exit criteria:
 Goal: provide an ergonomic Rust SDK so rule authors can write rules without
 touching raw Wasm or the ABI directly.
 
+Status: complete.
+
 This is an intentionally simple first version of the SDK. It will evolve as the
 fact model grows and the ABI matures through later milestones. The SDK is a
 developer-experience layer — the raw ABI remains the ground truth underneath.
 
 Tasks:
 
-- add `knot-sdk` crate to the workspace
-- expose ergonomic Rust types wrapping the ABI (facts, spans, diagnostics)
-- provide a proc-macro or declarative macro for rule metadata (name, ID,
-  severity, language filter)
-- expose a simple registration interface (e.g. `register!(MyRule)`) so rules
-  are discovered automatically
-- handle fact deserialization and diagnostic serialization transparently
-- migrate the three existing Wasm rules to use the SDK:
+- add `knot-sdk` crate to the workspace ✅
+- expose ergonomic Rust types wrapping the ABI (facts, spans, diagnostics) ✅
+- provide a declarative `register!` macro for rule registration ✅
+- expose a simple registration interface (`register!(MyRule)`) so rules
+  are discovered at link time ✅
+- handle fact deserialization and diagnostic serialization transparently ✅
+- migrate the three existing Wasm rules to use the SDK: ✅
   - Python mutable default argument
   - TypeScript `debugger`
   - TypeScript `console.*`
-- verify migrated rules pass the same fixture tests as the raw Wasm versions
+- verify migrated rules pass the same fixture tests as the raw Wasm versions ✅
 
 Exit criteria:
 
-- writing a new rule requires no direct ABI interaction
-- all three existing rules pass their fixture tests when reimplemented via the
-  SDK
-- a new trivial rule can be written in ~10 lines of Rust
-- the SDK crate compiles to `wasm32-unknown-unknown`
+- ✅ writing a new rule requires no direct ABI interaction
+- ✅ all three existing rules pass their fixture tests when reimplemented via the
+  SDK (all 52 tests pass, byte-exact diagnostics)
+- ✅ a new trivial rule can be written in ~10 lines of Rust — the migrated
+  `ts-debugger` rule's `check` body is 5 lines. Adding a new rule is one
+  `Rule` impl, one `[[bin]]` shim, one `bundled_rules.rs` line, one fixture —
+  no SDK or ABI work.
+- ✅ the SDK crate compiles to `wasm32-unknown-unknown`
 
 Note: the SDK is expected to grow as new fact types (scopes, bindings, imports,
 etc.) are introduced in Milestones 3 and 5. Those milestones will both consume
